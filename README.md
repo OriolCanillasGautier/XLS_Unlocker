@@ -35,26 +35,26 @@ Files created with Excel 2007 and later use the Office Open XML format (a ZIP ar
 
 To remove workbook structure protection, edit `xl/workbook.xml` and remove the `<workbookProtection ... />` tag.
 
-### El truc "DPx" (Corrupció intencionada)
-En lloc d'intentar endevinar la contrasenya, corrompem la clau perquè l'Excel s'espanti i ens deixi entrar.
+### VBA Project Password Removal
 
-**Passos:**
-1.  **Accedir al codi binari:**
-    *   **En .xls:** Obre el fitxer directament amb Editor Hexadecimal.
-    *   **En .xlsm:** Canvia a `.zip`, extreu `xl/vbaProject.bin` i obre aquest fitxer amb Editor Hexadecimal.
-2.  **Buscar la clau:** Busca el text `DPB=` (pot ser que necessitis buscar en mode text/ANSI).
-3.  **El Hack:** Canvia la `B` per una `x`.
-    *   Original: `DPB="...claus..."`
-    *   Modificat: `DPx="...claus..."`
-    *   *Nota:* Has de mantenir el mateix número de bytes, només canvia la lletra.
-4.  **Reconstruir:**
-    *   Guarda el canvi. (Si era .xlsm, torna a posar el `vbaProject.bin` al ZIP).
-5.  **Obrir a Excel:**
-    *   Obre el fitxer. Et donarà errors com "Clau no vàlida" (Invalid Key) o "Projecte corrupte". **Accepta'ls tots (Sí/Yes).**
-6.  **Fixar-ho definitivament:**
-    *   Ves a l'editor VBA (Alt+F11).
-    *   Apareixerà un error "Error no esperat" (Unexpected Error). Accepta.
-    *   Ves a **Eines (Tools)** > **Propietats de VBAProject**.
-    *   Ves a la pestanya **Protecció**.
-    *   Escriu una **NOVA** contrasenya (la que vulguis) i guarda el fitxer.
-    *   Ara ja tens el control total amb la teva contrasenya.
+To bypass VBA project password protection (applies to both `.xls` and `.xlsm` files):
+
+1. For `.xls`: Open the file directly in a hex editor.  
+   For `.xlsm`: Rename to `.zip`, extract `xl/vbaProject.bin`, and open it in a hex editor.
+2. Search for the ASCII string `DPB=`.
+3. Change the `B` to `x` (`DPB=` → `DPx=`), preserving byte length.
+4. Save the file and restore the original container if needed.
+5. Open in Excel—accept any corruption warnings.
+6. In the VBA editor (Alt+F11), go to Tools → VBAProject Properties → Protection, set a new password, and save the workbook.
+
+## Limitations
+
+This tool **does not**:
+- Remove file-open passwords (encryption).
+- Recover or crack forgotten passwords.
+- Modify VBA project protection.
+- Work on modern `.xlsx` files (use the ZIP/XML method above instead).
+
+## Disclaimer
+
+Use this tool only on files you own or have explicit permission to modify. Bypassing protection mechanisms may violate terms of service or local laws in certain contexts. The author assumes no liability for misuse.
