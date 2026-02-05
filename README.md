@@ -1,77 +1,60 @@
-# Guia Completa Mestra: Desbloqueig d'Excel
+# Excel Sheet Unlocker
 
-Aquesta guia cobreix les tècniques per eliminar contrasenyes de protecció de fulls, estructura de llibres i projectes VBA (Macros), tant per als formats antics com per als moderns.
+A lightweight tool to remove worksheet and workbook protection from legacy Excel 97-2003 (.xls) files without knowing the password. This utility modifies the binary structure of the file to disable protection flags.
 
----
+## Quick Start
 
-## 🟢 PART 1: Excel Modern (.xlsx / .xlsm)
-Els fitxers moderns (Excel 2007 en endavant) són en realitat fitxers **ZIP** plens d'XML. Això fa que siguin molt fàcils de modificar sense editors hexadecimals complexos (excepte per a les macros).
+1. Place `unlocker.py` in the same directory as your protected `.xls` files.
+2. Run the script:
+   ```bash
+   python unlocker.py
+   ```
+3. The script will process all `.xls` files in the directory and generate unlocked versions with the `_unlocked.xls` suffix.
+4. Open the new files in Excel—protection will be disabled without requiring a password.
 
-### 1. Desbloquejar Fulls de Càlcul (Worksheets)
-Si no pots editar cel·les en un full concret:
+## How It Works
 
-1.  **Canvia l'extensió** del fitxer: de `fitxer.xlsx` a `fitxer.zip`.
-2.  Obre el ZIP (amb Windows o 7-Zip).
-3.  Navega a la carpeta: `xl/worksheets/`.
-4.  Veuràs fitxers com `sheet1.xml`, `sheet2.xml`, etc. Extreu el que vulguis desbloquejar.
-5.  Obre l'XML amb el Bloc de Notes (o VS Code).
-6.  Busca l'etiqueta que comença per `<sheetProtection ...`.
-7.  **Esborra tota l'etiqueta** (des de `<` fins a `/>`).
-    *   *Exemple:* Esborra `<sheetProtection algorithmName="SHA-512" hashValue="..." saltValue="..." ... />`
-8.  Guarda el fitxer XML i torna'l a posar dins del ZIP, sobreescrivint l'antic.
-9.  Torna a canviar l'extensió de `.zip` a `.xlsx`.
+Excel 97-2003 files use the BIFF8 binary format. Worksheet and workbook protection is controlled by a simple 2-byte flag within the `PROTECT` record (`0x0012`):
 
-### 2. Desbloquejar l'Estructura del Llibre
-Si no pots afegir, moure, amagar o esborrar fulls:
+- Protected state: `12 00 02 00 01 00`
+- Unprotected state: `12 00 02 00 00 00`
 
-1.  Fes el mateix procés del ZIP.
-2.  Navega a la carpeta `xl/`.
-3.  Edita el fitxer `workbook.xml`.
-4.  Busca i esborra l'etiqueta `<workbookProtection ... />`.
+The script performs a binary replacement of all occurrences of the protected pattern with the unprotected version. This disables protection at the file level—Excel will no longer enforce restrictions when the modified file is opened.
 
----
+## Alternative Methods for Other Scenarios
 
-## 🟠 PART 2: Excel Antic (.xls) - Format Binari
-Els fitxers antics (97-2003) no són ZIPs, sinó contenidors binaris OLE (Compound File Binary Format). Tot és un sol "blob" de dades.
+### Modern Excel Files (.xlsx / .xlsm)
 
-### 1. Desbloquejar Fulls (El mètode "bit-flip")
-La protecció és un simple interruptor binari.
-*   **Eina necessària:** Editor Hexadecimal (HxD) o l'script de Python inclòs (`unlocker.py`).
-*   **El procediment:**
-    1.  Obre el fitxer `.xls` amb un editor Hexadecimal.
-    2.  Busca la seqüència (**Hex**): `12 00 02 00 01 00`
-        *   `12 00`: Registre "PROTECT"
-        *   `02 00`: Longitud 2 bytes
-        *   `01 00`: Valor 1 (Activat)
-    3.  Substitueix-la per: `12 00 02 00 00 00`
-    4.  Repeteix per cada vegada que apareguip (una per cada full protegit).
-    5.  Guarda. L'Excel es pensarà que la protecció està desactivada.
+Files created with Excel 2007 and later use the Office Open XML format (a ZIP archive containing XML files). To remove worksheet protection:
 
----
+1. Rename the file extension from `.xlsx` to `.zip`.
+2. Extract the archive and navigate to `xl/worksheets/`.
+3. Open the relevant `sheetN.xml` file in a text editor.
+4. Locate and delete the `<sheetProtection ... />` tag.
+5. Save the file, repackage the ZIP archive, and rename the extension back to `.xlsx`.
 
-## 🔴 PART 3: Desbloquejar Macros VBA (Tots els formats)
-La protecció del projecte VBA (contrasenya per veure/editar codi) funciona gairebé igual en tots dos formats, perquè els fitxers `.xlsm` moderns guarden les macros dins d'un fitxer binari anomentat `vbaProject.bin` que té l'estructura antiga.
+To remove workbook structure protection, edit `xl/workbook.xml` and remove the `<workbookProtection ... />` tag.
 
-### El truc "DPx" (Corrupció intencionada)
-En lloc d'intentar endevinar la contrasenya, corrompem la clau perquè l'Excel s'espanti i ens deixi entrar.
+### VBA Project Password Removal
 
-**Passos:**
-1.  **Accedir al codi binari:**
-    *   **En .xls:** Obre el fitxer directament amb Editor Hexadecimal.
-    *   **En .xlsm:** Canvia a `.zip`, extreu `xl/vbaProject.bin` i obre aquest fitxer amb Editor Hexadecimal.
-2.  **Buscar la clau:** Busca el text `DPB=` (pot ser que necessitis buscar en mode text/ANSI).
-3.  **El Hack:** Canvia la `B` per una `x`.
-    *   Original: `DPB="...claus..."`
-    *   Modificat: `DPx="...claus..."`
-    *   *Nota:* Has de mantenir el mateix número de bytes, només canvia la lletra.
-4.  **Reconstruir:**
-    *   Guarda el canvi. (Si era .xlsm, torna a posar el `vbaProject.bin` al ZIP).
-5.  **Obrir a Excel:**
-    *   Obre el fitxer. Et donarà errors com "Clau no vàlida" (Invalid Key) o "Projecte corrupte". **Accepta'ls tots (Sí/Yes).**
-6.  **Fixar-ho definitivament:**
-    *   Ves a l'editor VBA (Alt+F11).
-    *   Apareixerà un error "Error no esperat" (Unexpected Error). Accepta.
-    *   Ves a **Eines (Tools)** > **Propietats de VBAProject**.
-    *   Ves a la pestanya **Protecció**.
-    *   Escriu una **NOVA** contrasenya (la que vulguis) i guarda el fitxer.
-    *   Ara ja tens el control total amb la teva contrasenya.
+To bypass VBA project password protection (applies to both `.xls` and `.xlsm` files):
+
+1. For `.xls`: Open the file directly in a hex editor.  
+   For `.xlsm`: Rename to `.zip`, extract `xl/vbaProject.bin`, and open it in a hex editor.
+2. Search for the ASCII string `DPB=`.
+3. Change the `B` to `x` (`DPB=` → `DPx=`), preserving byte length.
+4. Save the file and restore the original container if needed.
+5. Open in Excel—accept any corruption warnings.
+6. In the VBA editor (Alt+F11), go to Tools → VBAProject Properties → Protection, set a new password, and save the workbook.
+
+## Limitations
+
+This tool **does not**:
+- Remove file-open passwords (encryption).
+- Recover or crack forgotten passwords.
+- Modify VBA project protection.
+- Work on modern `.xlsx` files (use the ZIP/XML method above instead).
+
+## Disclaimer
+
+Use this tool only on files you own or have explicit permission to modify. Bypassing protection mechanisms may violate terms of service or local laws in certain contexts. The author assumes no liability for misuse.
