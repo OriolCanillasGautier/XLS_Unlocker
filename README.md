@@ -1,42 +1,42 @@
 # Excel 97-2003 Unlocker & Forensics Toolkit
 
-Set d'eines professional per desbloquejar fitxers Excel antics (`.xls`) i projectes VBA.
+Professional toolkit to unlock legacy Excel files (.xls) and VBA projects.
 
-## 📂 Contingut
+## Contents
 
-### 1. `excel_unlocker.py` (L'eina automàtica)
-Aquest és l'script principal. 
-*   **Què fa:** Agafa qualsevol fitxer `.xls` de la carpeta i n'elimina totes les proteccions.
-*   **Com funciona:**
-    *   **Fulls:** Canvia el bit de protecció (`1` -> `0`).
-    *   **Macros (VBA):** Elimina completament les etiquetes de configuració de seguretat (`CMG`, `DPB`, `GC`) substituint-les per espais buits ("Voiding").
-*   **Resultat:** L'Excel s'obre sense demanar contrasenya i permet veure/editar el codi VBA sense errors.
+### 1. `excel_unlocker.py` (Automatic Tool)
+This is the main script.
+*   **What it does:** Takes any .xls file in the folder and removes all protections.
+*   **How it works:**
+    *   **Worksheets:** Changes the protection bit (1 -> 0).
+    *   **Macros (VBA):** Completely removes security configuration tags (CMG, DPB, GC) by replacing them with empty spaces ("Voiding").
+*   **Result:** Excel opens without asking for a password and allows viewing/editing VBA code without errors.
 
-### 2. `password_recovery.py` (Recuperador de Claus)
-Si necessites saber "quina era la contrasenya" per als Fulls (no per a les macros).
-*   Inclou un llistat de col·lisions conegudes per al hash `0xca35` (el més comú).
-*   Exemples: `anime`, `flag1`, `data!`.
+### 2. `password_recovery.py` (Password Recovery)
+Use this if you need to know "what the password was" for Worksheets (not for macros).
+*   Includes a list of known collisions for the 0xca35 hash (the most common one).
+*   Examples: anime, flag1, data!.
 
-### 3. `vba_hash_extractor.py` (Forensia)
-Si necessites recuperar la contrasenya original del projecte VBA (per força bruta real) enlloc de simplement esborrar-la.
-*   Extreu el "hash" del fitxer en format compatible amb **John the Ripper**.
-*   Ús: `python vba_hash_extractor.py fitxer.xls > hash.txt`
+### 3. `vba_hash_extractor.py` (Forensics)
+Use this if you need to recover the original VBA project password (via real brute force) instead of simply deleting it.
+*   Extracts the file "hash" in a format compatible with John the Ripper.
+*   Usage: `python vba_hash_extractor.py file.xls > hash.txt`
 
 ---
 
-## 🚀 Com fer-ho servir
+## How to use
 
-1.  Copia els teus fitxers `.xls` bloquejats en aquesta carpeta.
-2.  Obre una terminal (PowerShell o CMD).
-3.  Executa:
+1.  Copy your locked .xls files into this folder.
+2.  Open a terminal (PowerShell or CMD).
+3.  Run:
     ```bash
     python excel_unlocker.py
     ```
-4.  Es crearan fitxers nous acabats en `_unlocked.xls`.
+4.  New files ending in `_unlocked.xls` will be created.
 
 ---
 
-## ⚠️ Notes Tècniques
+## Technical Notes
 
-*   Aquestes eines funcionen modificant els bits binaris del format OLE Compound Document (BIFF8).
-*   **Excel Modern (.xlsx/.xlsm):** Aquests scripts NO funcionen per a fitxers nous (XML). Per a aquests, canvia l'extensió a `.zip` i edita els XML interns.
+*   These tools work by modifying the binary bits of the OLE Compound Document format (BIFF8).
+*   **Modern Excel (.xlsx/.xlsm):** These scripts DO NOT work for new files (XML). For those, change the extension to .zip and edit the internal XMLs.

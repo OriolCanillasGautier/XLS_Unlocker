@@ -1,4 +1,4 @@
-#include <stdio.h>
+
 """
 Fake standard password recovery script based on 16-bit hash collisions.
 """
