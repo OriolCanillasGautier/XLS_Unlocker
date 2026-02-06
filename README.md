@@ -4,39 +4,68 @@ Professional toolkit to unlock legacy Excel files (.xls) and VBA projects.
 
 ## Contents
 
-### 1. `excel_unlocker.py` (Automatic Tool)
-This is the main script.
-*   **What it does:** Takes any .xls file in the folder and removes all protections.
-*   **How it works:**
-    *   **Worksheets:** Changes the protection bit (1 -> 0).
-    *   **Macros (VBA):** Completely removes security configuration tags (CMG, DPB, GC) by replacing them with empty spaces ("Voiding").
-*   **Result:** Excel opens without asking for a password and allows viewing/editing VBA code without errors.
+### 1. `excel_unlocker.py` (Automatic Unlocker)
+Main script. Removes all protections from any .xls file in the current folder.
+*   **Worksheets:** Flips the BIFF8 PROTECT record bit from 1 (protected) to 0 (unprotected).
+*   **Macros (VBA):** Voids the security configuration tags (CMG, DPB, GC) by overwriting them with spaces, making Excel load the project as unprotected.
+*   **Output:** Creates a new file ending in `_unlocked.xls`.
 
-### 2. `password_recovery.py` (Password Recovery)
-Use this if you need to know "what the password was" for Worksheets (not for macros).
-*   Includes a list of known collisions for the 0xca35 hash (the most common one).
-*   Examples: anime, flag1, data!.
+### 2. `password_cracker.py` (Password Recovery)
+Attempts to recover the actual plaintext password from an .xls file.
+*   Scans the binary for PASSWORD records and extracts the 16-bit hashes.
+*   Tests 5 different hash algorithm variants (standard, 15-bit, reverse, positional, MSDN).
+*   Runs a dictionary attack followed by a short brute force.
+*   Prints a summary of all candidate passwords at the end.
+*   Usage: `python password_cracker.py <file.xls>`
 
 ### 3. `vba_hash_extractor.py` (Forensics)
-Use this if you need to recover the original VBA project password (via real brute force) instead of simply deleting it.
-*   Extracts the file "hash" in a format compatible with John the Ripper.
-*   Usage: `python vba_hash_extractor.py file.xls > hash.txt`
+Extracts the VBA project password hash in a format compatible with John the Ripper for offline cracking.
+*   Usage: `python vba_hash_extractor.py <file.xls> > hash.txt`
+*   Then crack with: `john hash.txt`
 
 ---
 
-## How to use
+## Quick Start
 
-1.  Copy your locked .xls files into this folder.
-2.  Open a terminal (PowerShell or CMD).
-3.  Run:
+**To remove all protections (sheets + macros):**
+1.  Copy your locked `.xls` files into this folder.
+2.  Run:
     ```bash
     python excel_unlocker.py
     ```
-4.  New files ending in `_unlocked.xls` will be created.
+3.  Open the new `_unlocked.xls` files.
+
+**To recover the actual password:**
+```bash
+python password_cracker.py your_file.xls
+```
+
+---
+
+## How it Works
+
+### Worksheet Protection (Bit-Flip)
+Excel 97-2003 stores sheet protection as a BIFF8 binary record:
+```
+12 00 02 00 01 00
+ |     |     |
+ |     |     Value: 01 = Protected, 00 = Unprotected
+ |     Length: 2 bytes
+ Record type: 0x0012 (PROTECT)
+```
+The tool simply changes `01 00` to `00 00`. Since the password hash is only checked when protection is active, Excel never asks for it.
+
+### VBA Protection (Tag Voiding)
+VBA project passwords are stored as hex-encoded tags inside the OLE stream.
+The tool overwrites these tags with spaces (0x20), preserving byte alignment. Excel then loads the project as if it never had a password, without triggering corruption errors.
+
+### Password Hash (16-bit)
+The legacy hash is only 16 bits wide (65536 possible values), so collisions are inevitable. Multiple passwords will produce the same hash, and any collision is accepted by Excel. The cracker tests 5 different algorithm variants because Microsoft's implementation changed slightly across versions.
 
 ---
 
 ## Technical Notes
 
-*   These tools work by modifying the binary bits of the OLE Compound Document format (BIFF8).
-*   **Modern Excel (.xlsx/.xlsm):** These scripts DO NOT work for new files (XML). For those, change the extension to .zip and edit the internal XMLs.
+*   These tools only work with `.xls` files (Excel 97-2003, BIFF8/OLE format).
+*   **Modern Excel (.xlsx/.xlsm):** Rename to `.zip`, navigate to `xl/worksheets/`, and delete the `<sheetProtection ... />` XML tag from each sheet.
+*   **Requirements:** Python 3.x (no external dependencies).
