@@ -17,6 +17,7 @@ Attempts to recover the actual plaintext password from an .xls file.
 *   Runs a dictionary attack followed by a short brute force.
 *   Prints a summary of all candidate passwords at the end.
 *   Usage: `python password_cracker.py <file.xls>`
+*   Supports custom wordlists, directory-based wordlists, optional word extraction from the file, and configurable brute-force settings.
 
 ### 3. `vba_hash_extractor.py` (Forensics)
 Extracts the VBA project password hash in a format compatible with John the Ripper for offline cracking.

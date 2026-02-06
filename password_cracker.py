@@ -8,6 +8,8 @@ import struct
 import itertools
 import string
 import sys
+import argparse
+import re
 
 # ============================================================
 # HASH ALGORITHMS (ALL KNOWN VARIANTS)
@@ -81,31 +83,61 @@ ALL_ALGORITHMS = {
 # DICTIONARY
 # ============================================================
 
-def build_dictionary():
-    """Build a comprehensive dictionary of common passwords and variations."""
+def build_dictionary(add_variants=True):
+    """Build a small, generic seed dictionary and variations."""
     base_words = [
-        "password", "Password", "123456", "1234", "12345", "admin", "excel", "test",
-        "secret", "hello", "master", "qwerty", "abc123", "letmein", "welcome",
-        "monkey", "dragon", "login", "princess", "football", "shadow", "sunshine",
-        "trustno1", "iloveyou", "batman", "access", "flower", "passw0rd",
-        "anime", "flag1", "data", "july", "blame", "forge", "dave",
-        "macro", "vba", "sheet", "lock", "unlock", "open", "close",
-        # German (common in financial XLS files)
-        "amort", "amor", "bank", "loan", "rate", "calc", "zins",
-        "kredit", "tilgung", "darlehen", "geld", "wert", "konto",
-        "tabelle", "blatt", "schutz", "passwort", "kennwort", "geheim",
-        "AMORTWKZ", "amortwkz", "Amortwkz",
-        # Spanish / Catalan
-        "hola", "clau", "contrasenya", "taula", "full",
+        "excel", "sheet", "workbook", "project", "macro", "vba",
+        "protect", "protected", "unlock", "security", "editor",
+        "calc", "table", "data", "input", "output",
     ]
 
     extended = set()
     for w in base_words:
-        extended.update([
-            w, w + "1", w + "!", w + "123", w + "12",
-            w.upper(), w.lower(), w.capitalize(),
-        ])
+        extended.update([w, w.upper(), w.lower(), w.capitalize()])
+        if add_variants:
+            extended.update([
+                w + "1", w + "2", w + "3",
+                w + "01", w + "02",
+                w + "!", w + "?",
+            ])
     return list(extended)
+
+
+def load_wordlist_file(path):
+    """Load one wordlist file (one entry per line)."""
+    words = []
+    try:
+        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                w = line.strip()
+                if w:
+                    words.append(w)
+    except Exception:
+        return []
+    return words
+
+
+def load_wordlists(paths, dirs):
+    """Load multiple wordlists from files and directories."""
+    words = []
+    for p in paths:
+        words.extend(load_wordlist_file(p))
+
+    for d in dirs:
+        if not os.path.isdir(d):
+            continue
+        for name in os.listdir(d):
+            if name.lower().endswith('.txt'):
+                words.extend(load_wordlist_file(os.path.join(d, name)))
+
+    return words
+
+
+def extract_ascii_words(data, min_len=4):
+    """Extract ASCII-like words from the binary data to build a context dictionary."""
+    text = data.decode('latin-1', errors='ignore')
+    pattern = re.compile(rf"[A-Za-z0-9][A-Za-z0-9_\-]{{{max(0, min_len - 1)},}}")
+    return list(set(pattern.findall(text)))
 
 # ============================================================
 # SCANNER
@@ -128,9 +160,9 @@ def find_password_hashes(data):
 # CRACKER
 # ============================================================
 
-def crack_hash(target_hash, algo_func, max_len=4):
+def crack_hash(target_hash, algo_func, max_len=4, charset=None):
     """Brute force a hash using the given algorithm."""
-    chars = string.ascii_lowercase + string.digits + string.ascii_uppercase + "!@#$"
+    chars = charset or (string.ascii_lowercase + string.digits + string.ascii_uppercase + "!@#$")
     for length in range(1, max_len + 1):
         for combo in itertools.product(chars, repeat=length):
             pwd = "".join(combo)
@@ -143,11 +175,22 @@ def crack_hash(target_hash, algo_func, max_len=4):
 # ============================================================
 
 def main():
-    input_file = sys.argv[1] if len(sys.argv) > 1 else "original.xls"
+    parser = argparse.ArgumentParser(description="Excel 97-2003 (.xls) password cracker")
+    parser.add_argument("file", nargs='?', default="original.xls", help=".xls file to analyze")
+    parser.add_argument("--wordlist", action='append', default=[], help="Path to a wordlist file (repeatable)")
+    parser.add_argument("--wordlist-dir", action='append', default=[], help="Directory with .txt wordlists")
+    parser.add_argument("--no-builtins", action='store_true', help="Disable built-in seed dictionary")
+    parser.add_argument("--no-variants", action='store_true', help="Disable simple suffix/case variants")
+    parser.add_argument("--extract-words", action='store_true', help="Extract words from the XLS binary")
+    parser.add_argument("--extract-min-len", type=int, default=4, help="Minimum length for extracted words")
+    parser.add_argument("--max-len", type=int, default=4, help="Max brute-force length")
+    parser.add_argument("--charset", default=None, help="Custom brute-force charset")
+
+    args = parser.parse_args()
+    input_file = args.file
 
     if not os.path.exists(input_file):
         print(f"Error: {input_file} not found.")
-        print(f"Usage: python {os.path.basename(__file__)} <file.xls>")
         return
 
     with open(input_file, 'rb') as f:
@@ -172,7 +215,19 @@ def main():
     print("\n[STEP 2] Cracking hashes...")
     print("-" * 60)
 
-    dictionary = build_dictionary()
+    dictionary = []
+    if not args.no_builtins:
+        dictionary.extend(build_dictionary(add_variants=not args.no_variants))
+
+    external_words = load_wordlists(args.wordlist, args.wordlist_dir)
+    if external_words:
+        dictionary.extend(external_words)
+
+    if args.extract_words:
+        dictionary.extend(extract_ascii_words(data, min_len=args.extract_min_len))
+
+    # Normalize dictionary entries
+    dictionary = list({w for w in dictionary if w and isinstance(w, str)})
     all_results = []  # Collect all findings here
 
     for target in unique_hashes:
@@ -191,12 +246,12 @@ def main():
                 print(f"    [{algo_name}] MATCH: '{found}'")
             else:
                 # Brute force 1-4 chars
-                found = crack_hash(target, algo_func, max_len=4)
+                found = crack_hash(target, algo_func, max_len=args.max_len, charset=args.charset)
                 if found:
                     all_results.append((target, algo_name, found))
                     print(f"    [{algo_name}] BRUTE FORCE: '{found}'")
                 else:
-                    print(f"    [{algo_name}] No match (1-4 chars).")
+                    print(f"    [{algo_name}] No match (1-{args.max_len} chars).")
 
     # 3. Summary
     print("\n" + "=" * 60)
