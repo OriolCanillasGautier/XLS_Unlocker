@@ -49,7 +49,29 @@ Wordlist usage examples:
 	python password_cracker.py target.xls --wordlist-dir wordlists --extract-words --max-len 6
 	```
 
-### 3. `vba_hash_extractor.py` (Forensics)
+### 3. `xlsx_unlocker.py` (OOXML: .xlsx / .xlsm)
+
+Handles the modern format, which the BIFF8 scripts above cannot read (an `.xlsx` is a ZIP of XML parts, not an OLE stream).
+
+Key difference worth understanding: **a protected sheet is not an encrypted file.** Excel writes a `<sheetProtection>` element into that sheet's XML — a flag plus a salted SHA-512 hash — and enforces the lock in the UI. No data is encrypted, so removing the element unlocks the sheet with **no password needed** and zero data loss.
+
+*   `inspect` — lists sheets, protection state, algorithm/spinCount, and emits a hashcat-ready `$office$2016$0$...` line.
+*   `unlock` — strips `<sheetProtection>` from every sheet into a new file (default action).
+*   `unlock --password PW` — instead re-protects sheets with a password *you* choose. Add `--sheet NAME` (repeatable) to protect only specific sheets; without it every sheet is protected, which will lock data-entry sheets too.
+*   `verify` — tests one candidate against the stored hash.
+*   `crack` — wordlist / metadata-targeted attack (multiprocessing).
+*   `selftest` — validates the KDF against hashcat's published mode-25300 vector.
+
+```bash
+python xlsx_unlocker.py inspect "book.xlsx"
+python xlsx_unlocker.py unlock  "book.xlsx"                  # -> book_unlocked.xlsx
+python xlsx_unlocker.py unlock  "book.xlsx" --password "New"  # re-lock, known password
+python xlsx_unlocker.py crack   "book.xlsx" --wordlist rockyou.txt --targeted
+```
+
+The SHA-512 KDF is the ECMA-376 agile derivation Excel uses for sheet protection, verified against hashcat mode 25300. Cracking throughput is ~14 candidates/s/core (100,000 spin iterations); for real volume, feed the emitted `$office$2016$...` line to hashcat on a GPU.
+
+### 4. `vba_hash_extractor.py` (Forensics)
 Extracts VBA project protection metadata in a format suitable for offline cracking tools.
 *   Usage: `python vba_hash_extractor.py <file.xls> > hash.txt`
 
@@ -104,6 +126,6 @@ This is why results are a candidate set, not a single ground-truth string. The i
 
 ## Technical Notes
 
-*   Scope: `.xls` only (Excel 97-2003, BIFF8/OLE).
-*   Output files are created with `_unlocked.xls` suffix to preserve originals.
-*   Requirements: Python 3.x (no external dependencies).
+*   Scope: `.xls` (BIFF8/OLE) via the three legacy scripts; `.xlsx`/`.xlsm` (OOXML) via `xlsx_unlocker.py`.
+*   Output files are created with `_unlocked.xls` / `_unlocked.xlsx` suffixes to preserve originals.
+*   Requirements: Python 3.x. The legacy scripts use only the standard library; `xlsx_unlocker.py` needs no third-party packages either (openpyxl is only used by the optional validation script).

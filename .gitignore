@@ -1,0 +1,5 @@
+# Local working copies and generated output.
+# These hold real customer workbooks - never commit them.
+out/
+work/
+*.tmp
